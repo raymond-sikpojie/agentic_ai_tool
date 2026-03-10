@@ -21,28 +21,45 @@ client = wrap_openai(
     )
 )
 
-# from pydantic import Field
+
+# output structure
+class Record(BaseModel):
+    year: str
+    album: str
+    artist: str
+    genre: str
+    price: int
 
 
+# create tool and specify the argument passed to it when called by the llm.
 class GetAlbumByTitle(BaseModel):
     """Tool to get album information by the album title"""
 
-    year: str = Field(description="Album Year")
-    album: str = Field(description="Album Title")
-    artist: str = Field(description="Performing Artist")
-    genre: str = Field(description="Album genre")
-    price: int = Field(description="Price of the album")
+    title: str = Field(description="The title of the album")
 
     def exec(self):
-        """Simple addition function."""
-        return self.a + self.b
+        import sqlite3
+
+        conn = sqlite3.connect("music.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM music WHERE album = ?", (self.title,))
+        rows = cursor.fetchall()
+
+        # for row in rows:
+        #     print(row)
+
+        conn.close()
+        return rows
+        # row = cursor.fetchone()
+        # conn.close()
+        # return row
 
 
-tool = pydantic_function_tool(Add)
+tool = pydantic_function_tool(GetAlbumByTitle)
 
 # print(tool)
 
-tool_lookup = {"Add": Add}
+tool_lookup = {"GetAlbumByTitle": GetAlbumByTitle}
 
 conversation_history = [
     {
@@ -53,22 +70,45 @@ conversation_history = [
 ]
 
 conversation_history.append(
-    {"role": "user", "content": "Do you have any albums by The Beatles?"}
+    {"role": "user", "content": "Do you have the album Revolver?"}
 )
-# call the model to get a response
+# call the model use a tool
 response = client.chat.completions.create(
-    model=model, messages=conversation_history, tools=[tool]
+    model=model,
+    messages=conversation_history,
+    tools=[tool],
 )
 
 # add the response to the conversation history
-assitant_response = response.choices[0].message.content
-conversation_history.append({"role": "assistant", "content": assitant_response})
+# assistant_response = response.choices[0].message.content
+# conversation_history.append({"role": "assistant", "content": assistant_response})
+
+conversation_history.append(response.choices[0].message)
+
 
 function = response.choices[0].message.tool_calls[0].function
+tool_id = response.choices[0].message.tool_calls[0].id
 
 tool_name = function.name
 tool_args = function.arguments
 
 result = tool_lookup[tool_name].model_validate_json(tool_args).exec()
 
-print(result)
+# Feed the tool result back into the conversation
+conversation_history.append(
+    {
+        "role": "tool",
+        "tool_call_id": tool_id,  # links result back to the tool call
+        "content": str(result),
+    }
+)
+
+# Call the LLM again with the tool call result in context
+final_response = client.chat.completions.create(
+    model=model,
+    messages=conversation_history,
+)
+
+print(final_response.choices[0].message.content)
+
+# print(result)
