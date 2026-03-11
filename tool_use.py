@@ -23,16 +23,16 @@ client = wrap_openai(
 
 
 # output structure
-class Record(BaseModel):
-    year: str
-    album: str
-    artist: str
-    genre: str
-    price: int
+# class Record(BaseModel):
+#     year: str
+#     album: str
+#     artist: str
+#     genre: str
+#     price: int
 
 
 # create tool and specify the argument passed to it when called by the llm.
-class GetAlbumByTitle(BaseModel):
+class get_album_by_title(BaseModel):
     """Tool to get album information by the album title"""
 
     title: str = Field(description="The title of the album")
@@ -55,12 +55,69 @@ class GetAlbumByTitle(BaseModel):
         # return row
 
 
-tool = pydantic_function_tool(GetAlbumByTitle)
+class get_album_by_artist(BaseModel):
+    """Tool to get album information by the artist"""
+
+    artist: str = Field(description="The name of the performing artist")
+
+    def exec(self):
+        import sqlite3
+
+        conn = sqlite3.connect("music.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM music WHERE artist = ?", (self.artist,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+
+class get_albums_by_year(BaseModel):
+    """Tool to get album information by the year the record was released"""
+
+    year: int = Field(description="The year the album was released")
+
+    def exec(self):
+        import sqlite3
+
+        conn = sqlite3.connect("music.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM music WHERE year = ?", (self.year,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+
+class get_albums_by_genre(BaseModel):
+    """Tool to get album information by the artist"""
+
+    genre: str = Field(description="The name of the genre")
+
+    def exec(self):
+        import sqlite3
+
+        conn = sqlite3.connect("music.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM music WHERE genre = ?", (self.genre,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+
+tools = [
+    pydantic_function_tool(get_album_by_title),
+    pydantic_function_tool(get_album_by_artist),
+    pydantic_function_tool(get_albums_by_year),
+    pydantic_function_tool(get_albums_by_genre),
+]
 
 # print(tool)
 
-tool_lookup = {"GetAlbumByTitle": GetAlbumByTitle}
-
+tool_lookup = {
+    "get_album_by_title": get_album_by_title,
+    "get_album_by_artist": get_album_by_artist,
+    "get_albums_by_year": get_albums_by_year,
+    "get_albums_by_genre": get_albums_by_genre,
+}
 conversation_history = [
     {
         "role": "system",
@@ -69,14 +126,14 @@ conversation_history = [
     }
 ]
 
-conversation_history.append(
-    {"role": "user", "content": "Do you have the album Revolver?"}
-)
+user_input = input("You: ")
+conversation_history.append({"role": "user", "content": user_input})
+
 # call the model use a tool
 response = client.chat.completions.create(
     model=model,
     messages=conversation_history,
-    tools=[tool],
+    tools=tools,
 )
 
 # add the response to the conversation history
