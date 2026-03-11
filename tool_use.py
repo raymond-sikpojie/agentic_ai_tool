@@ -126,46 +126,44 @@ conversation_history = [
     }
 ]
 
-user_input = input("You: ")
-conversation_history.append({"role": "user", "content": user_input})
+while True:
+    user_input = input("You: ")
+    conversation_history.append({"role": "user", "content": user_input})
 
-# call the model use a tool
-response = client.chat.completions.create(
-    model=model,
-    messages=conversation_history,
-    tools=tools,
-)
+    # call the model use a tool
+    response = client.chat.completions.create(
+        model=model,
+        messages=conversation_history,
+        tools=tools,
+    )
 
-# add the response to the conversation history
-# assistant_response = response.choices[0].message.content
-# conversation_history.append({"role": "assistant", "content": assistant_response})
+    assistant_response = response.choices[0].message
 
-conversation_history.append(response.choices[0].message)
+    conversation_history.append(assistant_response)
 
+    function = response.choices[0].message.tool_calls[0].function
+    tool_id = response.choices[0].message.tool_calls[0].id
 
-function = response.choices[0].message.tool_calls[0].function
-tool_id = response.choices[0].message.tool_calls[0].id
+    tool_name = function.name
+    tool_args = function.arguments
 
-tool_name = function.name
-tool_args = function.arguments
+    result = tool_lookup[tool_name].model_validate_json(tool_args).exec()
 
-result = tool_lookup[tool_name].model_validate_json(tool_args).exec()
+    # Feed the tool result back into the conversation
+    conversation_history.append(
+        {
+            "role": "tool",
+            "tool_call_id": tool_id,
+            "content": str(result),
+        }
+    )
 
-# Feed the tool result back into the conversation
-conversation_history.append(
-    {
-        "role": "tool",
-        "tool_call_id": tool_id,  # links result back to the tool call
-        "content": str(result),
-    }
-)
+    # Call the LLM again with the tool call result in context
+    final_response = client.chat.completions.create(
+        model=model,
+        messages=conversation_history,
+    )
 
-# Call the LLM again with the tool call result in context
-final_response = client.chat.completions.create(
-    model=model,
-    messages=conversation_history,
-)
-
-print(final_response.choices[0].message.content)
-
-# print(result)
+    assistant_message = final_response.choices[0].message.content
+    conversation_history.append({"role": "assistant", "content": assistant_message})
+    print(f"Assistant: {assistant_message}")
