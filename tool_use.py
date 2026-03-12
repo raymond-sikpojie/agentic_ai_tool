@@ -136,12 +136,9 @@ response = client.chat.completions.create(
     tools=tools,
 )
 
-# add the response to the conversation history
-# assistant_response = response.choices[0].message.content
-# conversation_history.append({"role": "assistant", "content": assistant_response})
-
-conversation_history.append(response.choices[0].message)
-
+# add the assistant response to the conversation history
+assistant_response = response.choices[0].message
+conversation_history.append(assistant_response)
 
 function = response.choices[0].message.tool_calls[0].function
 tool_id = response.choices[0].message.tool_calls[0].id
