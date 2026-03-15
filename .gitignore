@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 venv/
 database_cheat_sheet.md
+CHANGES.md

@@ -88,7 +88,7 @@ class get_albums_by_year(BaseModel):
 
 
 class get_albums_by_genre(BaseModel):
-    """Tool to get album information by the artist"""
+    """Tool to get album information by the genre"""
 
     genre: str = Field(description="The name of the genre")
 
@@ -122,11 +122,12 @@ conversation_history = [
     {
         "role": "system",
         "content": "You are a helpful assistant at a record shop that has an inventory of records. \
-         you will help answer customers' inquiries regarding records in this store. ",
+         you will help answer customers' inquiries regarding records in this store. You have access \
+         to tools and you can use any tool of your choice before returning a final response",
     }
 ]
 
-user_input = input("You: ")
+user_input = input("User: ")
 conversation_history.append({"role": "user", "content": user_input})
 
 # call the model use a tool
