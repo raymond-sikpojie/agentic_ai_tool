@@ -3,5 +3,4 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-database_cheat_sheet.md
-CHANGES.md
+.DS_Store
